@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard 5S - Gestión Profesional</title>
+    
+    <!-- Librerías Externas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #f8fafc; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .gradient-header { background: linear-gradient(to right, #0f172a, #334155); }
+        .nav-active { border-bottom: 2px solid #3b82f6; color: #1d4ed8; font-weight: 600; }
+        .nav-inactive { color: #64748b; }
+        .nav-inactive:hover { color: #334155; }
+    </style>
+</head>
+<body>
+
+    <!-- Barra Superior de Herramientas -->
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 py-3 shadow-sm flex flex-col md:flex-row justify-between items-center">
+        <div class="flex items-center space-x-2 text-gray-600 mb-2 md:mb-0">
+            <i class="fas fa-layer-group text-blue-600"></i>
+            <span class="font-bold tracking-tight">SISTEMA DE GESTIÓN 5S</span>
+        </div>
+        <div class="flex space-x-3">
+            <button onclick="downloadComplexTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded flex items-center transition">
+                <i class="fas fa-file-excel mr-2"></i> Descargar Formato Oficial
+            </button>
+            <label class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded cursor-pointer flex items-center transition">
+                <i class="fas fa-upload mr-2"></i> Subir Auditoría
+                <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" />
+            </label>
+        </div>
+    </div>
+
+    <!-- Encabezado con Logo -->
+    <header class="gradient-header text-white p-8">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-6">
+                <!-- Contenedor Logo -->
+                <div class="bg-white p-2 rounded h-20 w-32 flex items-center justify-center overflow-hidden relative group cursor-pointer">
+                    <img id="companyLogo" src="https://via.placeholder.com/150x80?text=TU+LOGO" class="max-h-full max-w-full object-contain">
+                    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <label class="text-xs text-white cursor-pointer text-center leading-tight">
+                            Cambiar<br>Logo
+                            <input type='file' class="hidden" onchange="updateLogo(this)" accept="image/*" />
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold">REPORTE EJECUTIVO 5S</h1>
+                    <p class="text-blue-200 text-sm mt-1">Evaluación de Mejora Continua y Estandarización</p>
+                </div>
+            </div>
+            <div class="text-right hidden md:block">
+                <div class="text-xs text-gray-400 uppercase">Presentado por</div>
+                <div class="font-bold text-lg text-yellow-400">ROCIO TELLEZ</div>
+                <div id="fileInfo" class="text-xs text-gray-400 mt-1">Vista Demo</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="max-w-7xl mx-auto px-4 -mt-6 relative z-10 pb-12">
+        
+        <!-- Tarjeta de Controles Principales -->
+        <div class="bg-white rounded-lg shadow-lg p-4 mb-6 flex flex-col md:flex-row justify-between items-center border border-gray-100">
+            
+            <!-- Selector de Área (Pestañas) -->
+            <div class="flex space-x-6 border-b md:border-b-0 border-gray-200 pb-2 md:pb-0 w-full md:w-auto overflow-x-auto">
+                <button onclick="switchArea('Administracion')" id="tab-admin" class="nav-active py-2 px-1 flex items-center whitespace-nowrap">
+                    <i class="fas fa-laptop-house mr-2"></i> ADMINISTRACIÓN
+                </button>
+                <button onclick="switchArea('Operacion')" id="tab-ops" class="nav-inactive py-2 px-1 flex items-center whitespace-nowrap">
+                    <i class="fas fa-industry mr-2"></i> OPERACIÓN / PLANTA
+                </button>
+            </div>
+
+            <!-- Selector de Pilar (Filtro) -->
+            <div class="mt-3 md:mt-0 flex items-center">
+                <span class="text-sm text-gray-500 mr-2">Filtrar Detalle:</span>
+                <select id="pilarFilter" onchange="updateCharts()" class="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-48 p-2">
+                    <option value="all">Ver Resumen General</option>
+                    <option value="Seiri">1. Clasificación (Seiri)</option>
+                    <option value="Seiton">2. Orden (Seiton)</option>
+                    <option value="Seiso">3. Limpieza (Seiso)</option>
+                    <option value="Seiketsu">4. Estandarización (Seiketsu)</option>
+                    <option value="Shitsuke">5. Disciplina (Shitsuke)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- KPIs Generales -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="card p-4 border-l-4 border-blue-600">
+                <div class="text-gray-500 text-xs font-bold uppercase">Calificación Global</div>
+                <div class="flex items-baseline mt-1">
+                    <span class="text-3xl font-bold text-gray-800" id="kpi-score">0.0</span>
+                    <span class="text-sm text-gray-400 ml-1">/ 5.0</span>
+                </div>
+                <div class="text-xs text-blue-600 mt-2 font-medium">Promedio Ponderado</div>
+            </div>
+            
+            <div class="card p-4 border-l-4 border-emerald-500">
+                <div class="text-gray-500 text-xs font-bold uppercase">Cumplimiento</div>
+                <div class="text-3xl font-bold text-gray-800 mt-1" id="kpi-percent">0%</div>
+                <div class="text-xs text-emerald-600 mt-2 font-medium">Meta: > 85%</div>
+            </div>
+
+            <div class="card p-4 border-l-4 border-yellow-500">
+                <div class="text-gray-500 text-xs font-bold uppercase">Mejor Desempeño</div>
+                <div class="text-lg font-bold text-gray-800 mt-2 truncate" id="kpi-best">--</div>
+                <div class="text-xs text-yellow-600 mt-1">Pilar Destacado</div>
+            </div>
+
+            <div class="card p-4 border-l-4 border-red-500">
+                <div class="text-gray-500 text-xs font-bold uppercase">Punto Crítico</div>
+                <div class="text-lg font-bold text-gray-800 mt-2 truncate" id="kpi-worst">--</div>
+                <div class="text-xs text-red-600 mt-1">Requiere Acción</div>
+            </div>
+        </div>
+
+        <!-- Panel de Gráficos Nivel 1 (Radar y Evolución) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Gráfico Radar (Izquierda) -->
+            <div class="card p-4 lg:col-span-1">
+                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Balance 5S (Radar)</h3>
+                <div class="h-64 relative">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico Evolutivo o Detalle (Derecha - Más ancho) -->
+            <div class="card p-4 lg:col-span-2">
+                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2 flex justify-between">
+                    <span id="mainChartTitle">Evolución Histórica</span>
+                    <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 rounded">Multifechas (Automático)</span>
+                </h3>
+                <div class="h-64 relative">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Gráficos Nivel 2 (Nuevos Gráficos) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Gráfico Barras Comparativas -->
+            <div class="card p-4">
+                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Comparativa por Pilar (Última Auditoría)</h3>
+                <div class="h-64 relative">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico Distribución -->
+            <div class="card p-4">
+                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Distribución de Calificaciones (Calidad)</h3>
+                <div class="h-64 relative flex justify-center">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla Detallada -->
+        <div class="card overflow-hidden">
+            <div class="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                <h3 class="font-bold text-gray-700 text-sm">Detalle de Hallazgos por Pregunta</h3>
+            </div>
+            <div class="overflow-x-auto max-h-[500px]">
+                <table class="w-full text-sm text-left text-gray-500" id="detailTable">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 z-10">
+                        <!-- Headers dinámicos -->
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-8 text-gray-500 border-t border-gray-200 mt-8 bg-white">
+        <div class="max-w-7xl mx-auto px-4">
+            <p class="font-bold text-gray-800">SISTEMA INTEGRAL DE GESTIÓN 5S - ENSAMBLA GROUP</p>
+            <div class="flex flex-col md:flex-row justify-center items-center mt-4 space-y-2 md:space-y-0 md:space-x-8 text-sm">
+                <div>
+                    <span class="block text-xs uppercase tracking-wider text-gray-400">Desarrollo Técnico</span>
+                    <span class="font-medium text-blue-600">Diego Alejandro Hernández Blanco</span>
+                    <span class="block text-xs text-gray-500">Ingeniero de Automatización de Procesos</span>
+                    <span class="block text-xs text-gray-400 mt-1"><i class="fas fa-phone-alt mr-1"></i>+57 321 629 1861</span>
+                </div>
+                <div class="hidden md:block h-8 w-px bg-gray-300"></div>
+                <div>
+                    <span class="block text-xs uppercase tracking-wider text-gray-400">Dirección y Presentación</span>
+                    <span class="font-medium text-pink-600">Rocio Tellez</span>
+                    <span class="block text-xs text-gray-500">Gestión de Calidad y Procesos</span>
+                </div>
+            </div>
+            <p class="text-xs text-gray-300 mt-6">&copy; 2026 Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- LÓGICA DE PROGRAMACIÓN -->
+    <script>
+        // ==========================================
+        // 1. VARIABLES GLOBALES Y ESTADO
+        // ==========================================
+        let fullData = {
+            'Administracion': null,
+            'Operacion': null
+        };
+        let currentArea = 'Administracion'; // Default
+        let charts = { radar: null, main: null, bar: null, pie: null };
+
+        // Colores para las líneas de preguntas
+        const lineColors = [
+            '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', 
+            '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef'
+        ];
+
+        // Datos DEMO para mostrar al inicio (Estructura compleja)
+        const demoDataStructure = {
+            fechas: ['02/Feb', '09/Feb', '16/Feb', '23/Feb', '02/Mar'],
+            pilares: ['Seiri', 'Seiton', 'Seiso', 'Seiketsu', 'Shitsuke'],
+            // Estructura: { Pilar: [ { pregunta: "Texto", scores: [1,2,3,4] } ] }
+            data: {
+                'Seiri': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta de Clasificación ${i+1} (Ejemplo)`, scores: [2,3,3,4,4] })),
+                'Seiton': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta de Orden ${i+1} (Ejemplo)`, scores: [3,3,4,4,5] })),
+                'Seiso': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta de Limpieza ${i+1} (Ejemplo)`, scores: [4,4,5,5,5] })),
+                'Seiketsu': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta Estandarización ${i+1} (Ejemplo)`, scores: [2,2,3,3,4] })),
+                'Shitsuke': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta Disciplina ${i+1} (Ejemplo)`, scores: [3,4,4,5,5] }))
+            }
+        };
+
+        // Cargar Demo en ambas áreas al inicio
+        fullData['Administracion'] = demoDataStructure;
+        fullData['Operacion'] = JSON.parse(JSON.stringify(demoDataStructure)); // Copia profunda
+        // Variar un poco la data de operación para que se note el cambio
+        fullData['Operacion'].data['Seiri'][0].scores = [1,2,2,3,3]; 
+
+        // ==========================================
+        // 2. GENERADOR DE PLANTILLA EXCEL (COMPLEJA)
+        // ==========================================
+        function downloadComplexTemplate() {
+            const wb = XLSX.utils.book_new();
+
+            // Función auxiliar para generar hoja con estructura de bloques
+            function createSheetData(areaName) {
+                const rows = [];
+                // Encabezados Generales
+                rows.push(["AUDITORÍA 5S - " + areaName.toUpperCase()]);
+                rows.push(["Instrucciones: Califique de 1 a 5 cada pregunta. Deje en blanco si no aplica. Agregue columnas a la derecha para más fechas."]);
+                rows.push([]); // Espacio
+
+                const pillars = [
+                    { name: "CLASIFICACIÓN (SEIRI)", key: "Seiri" },
+                    { name: "ORDEN (SEITON)", key: "Seiton" },
+                    { name: "LIMPIEZA (SEISO)", key: "Seiso" },
+                    { name: "ESTANDARIZACIÓN (SEIKETSU)", key: "Seiketsu" },
+                    { name: "DISCIPLINA (SHITSUKE)", key: "Shitsuke" }
+                ];
+
+                // Generar bloques
+                pillars.forEach(p => {
+                    rows.push([`ASPECTO: ${p.name}`]); // Fila Identificadora de Bloque
+                    // Header de fechas
+                    rows.push(["ASPECTO A EVALUAR", "02/Feb", "09/Feb", "16/Feb", "23/Feb"]);
+                    
+                    // 8 Preguntas genéricas
+                    for(let i=1; i<=8; i++) {
+                        rows.push([`Criterio ${i} para ${p.key}: ¿Se cumple correctamente...?`, "", "", "", ""]);
+                    }
+                    rows.push(["Total", "", "", "", ""]); // Fila de Total (opcional para el usuario)
+                    rows.push([]); // Espacio entre bloques
+                });
+
+                return rows;
+            }
+
+            // Crear Hoja Administración
+            const wsAdmin = XLSX.utils.aoa_to_sheet(createSheetData("Administración"));
+            // Ajustar anchos
+            wsAdmin['!cols'] = [{wch: 60}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}];
+            XLSX.utils.book_append_sheet(wb, wsAdmin, "Administracion");
+
+            // Crear Hoja Operación
+            const wsOps = XLSX.utils.aoa_to_sheet(createSheetData("Operación"));
+            wsOps['!cols'] = [{wch: 60}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}];
+            XLSX.utils.book_append_sheet(wb, wsOps, "Operacion");
+
+            XLSX.writeFile(wb, "Formato_Auditoria_5S_Ensambla.xlsx");
+        }
+
+        // ==========================================
+        // 3. PARSER DE EXCEL INTELIGENTE
+        // ==========================================
+        document.getElementById('excelInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                // Procesar hoja por hoja
+                workbook.SheetNames.forEach(sheetName => {
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ''});
+                    
+                    // Identificar si es Admin u Operacion (normalizar nombres)
+                    const cleanName = sheetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    if(cleanName.includes('admin')) {
+                        fullData['Administracion'] = parseSheetComplex(json);
+                    } else if (cleanName.includes('operacion') || cleanName.includes('planta')) {
+                        fullData['Operacion'] = parseSheetComplex(json);
+                    }
+                });
+
+                // Actualizar vista
+                document.getElementById('fileInfo').innerText = "Archivo: " + file.name;
+                updateView();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function parseSheetComplex(rows) {
+            // Estructura de salida
+            let result = {
+                fechas: [],
+                pilares: ['Seiri', 'Seiton', 'Seiso', 'Seiketsu', 'Shitsuke'],
+                data: { 'Seiri': [], 'Seiton': [], 'Seiso': [], 'Seiketsu': [], 'Shitsuke': [] }
+            };
+
+            let currentPilar = null;
+            let dateIndices = [];
+
+            for(let i=0; i<rows.length; i++) {
+                const row = rows[i];
+                const firstCell = String(row[0] || '').toUpperCase();
+
+                // 1. Detectar Bloque de Pilar
+                if(firstCell.includes('ASPECTO:')) {
+                    if(firstCell.includes('SEIRI') || firstCell.includes('CLASIFICACIÓN')) currentPilar = 'Seiri';
+                    else if(firstCell.includes('SEITON') || firstCell.includes('ORDEN')) currentPilar = 'Seiton';
+                    else if(firstCell.includes('SEISO') || firstCell.includes('LIMPIEZA')) currentPilar = 'Seiso';
+                    else if(firstCell.includes('SEIKETSU') || firstCell.includes('ESTANDARIZACIÓN')) currentPilar = 'Seiketsu';
+                    else if(firstCell.includes('SHITSUKE') || firstCell.includes('DISCIPLINA')) currentPilar = 'Shitsuke';
+                    continue; // Saltar a siguiente fila para buscar headers
+                }
+
+                // 2. Detectar Headers de Fecha (dentro de un bloque)
+                if(currentPilar && firstCell.includes('ASPECTO A EVALUAR')) {
+                    // Si es la primera vez que detectamos fechas, las guardamos globalmente para esta hoja
+                    if(result.fechas.length === 0) {
+                        for(let j=1; j<row.length; j++) {
+                            if(row[j]) {
+                                // Intentar formatear fecha si es número excel
+                                let d = row[j];
+                                result.fechas.push(String(d)); 
+                                dateIndices.push(j);
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                // 3. Detectar Preguntas/Datos
+                if(currentPilar && !firstCell.includes('TOTAL') && row[0] && dateIndices.length > 0) {
+                    // Es una pregunta válida
+                    let scores = [];
+                    dateIndices.forEach(idx => {
+                        let val = parseFloat(row[idx]);
+                        if(isNaN(val)) val = 0;
+                        if(val > 5) val = 5; // Límite superior
+                        scores.push(val);
+                    });
+
+                    // Solo agregar si tiene texto la pregunta
+                    result.data[currentPilar].push({
+                        pregunta: row[0],
+                        scores: scores
+                    });
+                }
+            }
+            return result;
+        }
+
+        // ==========================================
+        // 4. LÓGICA DE INTERFAZ (UI)
+        // ==========================================
+        
+        function switchArea(area) {
+            currentArea = area;
+            // Actualizar estilos tabs
+            document.getElementById('tab-admin').className = area === 'Administracion' ? 'nav-active py-2 px-1 flex items-center whitespace-nowrap' : 'nav-inactive py-2 px-1 flex items-center whitespace-nowrap';
+            document.getElementById('tab-ops').className = area === 'Operacion' ? 'nav-active py-2 px-1 flex items-center whitespace-nowrap' : 'nav-inactive py-2 px-1 flex items-center whitespace-nowrap';
+            
+            updateView();
+        }
+
+        function updateLogo(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('companyLogo').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function updateView() {
+            updateCharts();
+        }
+
+        function updateCharts() {
+            const dataSet = fullData[currentArea];
+            if(!dataSet) return; 
+
+            const filter = document.getElementById('pilarFilter').value;
+            const lastIdx = dataSet.fechas.length - 1;
+
+            // --- CÁLCULOS ESTADÍSTICOS ---
+            let pilarAverages = {};
+            let totalAveragesByDate = new Array(dataSet.fechas.length).fill(0);
+            
+            // Para el gráfico de distribución (pie)
+            let scoreDistribution = [0, 0, 0, 0, 0]; // Counts for 1, 2, 3, 4, 5
+
+            dataSet.pilares.forEach(pilar => {
+                const questions = dataSet.data[pilar];
+                let avgs = [];
+                
+                for(let i=0; i<dataSet.fechas.length; i++) {
+                    let sum = 0;
+                    let count = 0;
+                    questions.forEach(q => {
+                        let val = q.scores[i] || 0;
+                        sum += val;
+                        count++;
+                        
+                        // Solo contar distribución para la última fecha
+                        if (i === lastIdx && val > 0) {
+                            let intVal = Math.round(val);
+                            if(intVal >=1 && intVal <=5) scoreDistribution[intVal-1]++;
+                        }
+                    });
+                    let avg = count > 0 ? sum/count : 0;
+                    avgs.push(avg);
+                    totalAveragesByDate[i] += avg;
+                }
+                pilarAverages[pilar] = avgs;
+            });
+
+            totalAveragesByDate = totalAveragesByDate.map(val => val / 5);
+
+            // --- ACTUALIZAR KPIs ---
+            const currentScore = totalAveragesByDate[lastIdx] || 0;
+            
+            document.getElementById('kpi-score').innerText = currentScore.toFixed(2);
+            document.getElementById('kpi-percent').innerText = ((currentScore / 5) * 100).toFixed(0) + "%";
+            
+            let scoresArr = Object.entries(pilarAverages).map(([k, v]) => ({ pilar: k, score: v[lastIdx] }));
+            scoresArr.sort((a,b) => b.score - a.score);
+            
+            document.getElementById('kpi-best').innerText = scoresArr[0].pilar;
+            document.getElementById('kpi-worst').innerText = scoresArr[scoresArr.length-1].pilar;
+
+
+            // --- RENDERIZAR GRÁFICOS ---
+            
+            // 1. Radar Chart 
+            const ctxRadar = document.getElementById('radarChart').getContext('2d');
+            if(charts.radar) charts.radar.destroy();
+
+            charts.radar = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: dataSet.pilares,
+                    datasets: [{
+                        label: 'Nivel Actual',
+                        data: dataSet.pilares.map(p => pilarAverages[p][lastIdx]),
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#2563eb',
+                        pointBackgroundColor: '#2563eb',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { r: { min: 0, max: 5 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // 2. Main Chart (ESTE ES EL QUE CAMBIA CON EL FILTRO)
+            const ctxMain = document.getElementById('mainChart').getContext('2d');
+            if(charts.main) charts.main.destroy();
+
+            if(filter === 'all') {
+                // MODO GENERAL: Evolución en el tiempo (Promedio Total)
+                document.getElementById('mainChartTitle').innerText = "Evolución del Cumplimiento General";
+                charts.main = new Chart(ctxMain, {
+                    type: 'line',
+                    data: {
+                        labels: dataSet.fechas,
+                        datasets: [{
+                            label: 'Promedio General 5S',
+                            data: totalAveragesByDate,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { min: 0, max: 5 } }
+                    }
+                });
+            } else {
+                // MODO FILTRO: Muestra gráfico de LÍNEAS por cada PREGUNTA de ese Pilar
+                document.getElementById('mainChartTitle').innerText = `Evolución Detallada por Criterio: ${filter}`;
+                
+                const questions = dataSet.data[filter];
+                
+                // Generar datasets para cada pregunta
+                const datasets = questions.map((q, index) => ({
+                    label: q.pregunta.length > 30 ? q.pregunta.substring(0, 30) + '...' : q.pregunta,
+                    data: q.scores,
+                    borderColor: lineColors[index % lineColors.length], // Color cíclico
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: 4
+                }));
+
+                charts.main = new Chart(ctxMain, {
+                    type: 'line',
+                    data: {
+                        labels: dataSet.fechas,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { 
+                            y: { min: 0, max: 5 } 
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 10,
+                                    font: { size: 10 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: (context) => context[0].label, // Fecha
+                                    label: (context) => {
+                                        // Mostrar nombre completo de la pregunta en tooltip
+                                        const fullQuestion = questions[context.datasetIndex].pregunta;
+                                        return `${fullQuestion}: ${context.raw}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 3. New Bar Chart (Comparison per Pillar)
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            if(charts.bar) charts.bar.destroy();
+            
+            charts.bar = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: dataSet.pilares,
+                    datasets: [{
+                        label: 'Puntaje Actual (1-5)',
+                        data: dataSet.pilares.map(p => pilarAverages[p][lastIdx]),
+                        backgroundColor: [
+                            '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'
+                        ],
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 0, max: 5 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // 4. New Pie Chart (Distribution)
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            if(charts.pie) charts.pie.destroy();
+
+            charts.pie = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: ['1 (Pésimo)', '2 (Malo)', '3 (Regular)', '4 (Bueno)', '5 (Excelente)'],
+                    datasets: [{
+                        data: scoreDistribution,
+                        backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#10b981'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+
+            // --- RENDERIZAR TABLA ---
+            renderTable(dataSet, filter);
+        }
+
+        function renderTable(dataSet, filter) {
+            const thead = document.getElementById('detailTable').querySelector('thead');
+            const tbody = document.getElementById('tableBody');
+            
+            // Headers
+            let hHtml = `<tr><th class="px-6 py-3">Criterio / Pregunta</th>`;
+            dataSet.fechas.forEach(f => hHtml += `<th class="px-6 py-3 text-center">${f}</th>`);
+            hHtml += `</tr>`;
+            thead.innerHTML = hHtml;
+
+            // Body
+            tbody.innerHTML = '';
+            
+            let pilaresToShow = filter === 'all' ? dataSet.pilares : [filter];
+
+            pilaresToShow.forEach(pilar => {
+                // Header de sección en tabla
+                tbody.innerHTML += `<tr class="bg-gray-100"><td colspan="${dataSet.fechas.length + 1}" class="px-6 py-2 font-bold text-gray-800 border-b">${pilar}</td></tr>`;
+                
+                const questions = dataSet.data[pilar];
+                questions.forEach(q => {
+                    let row = `<tr class="bg-white border-b hover:bg-gray-50"><td class="px-6 py-3 text-gray-600">${q.pregunta}</td>`;
+                    
+                    q.scores.forEach(s => {
+                        let color = s>=4 ? 'text-green-600 font-bold' : (s>=3 ? 'text-yellow-600' : 'text-red-600');
+                        row += `<td class="px-6 py-3 text-center ${color}">${s.toFixed(1)}</td>`;
+                    });
+                    
+                    row += `</tr>`;
+                    tbody.innerHTML += row;
+                });
+            });
+        }
+
+        // Init
+        window.onload = function() {
+            updateView();
+        }
+
+    </script>
+</body>
+</html>
