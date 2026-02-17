@@ -30,6 +30,9 @@
             border-color: rgba(255,255,255,0.8);
             background: rgba(255,255,255,0.1);
         }
+
+        /* Ocultar botón de reporte en la app principal (se muestra solo al descargar) */
+        #reportUpdateBtn { display: none; }
     </style>
 </head>
 <body>
@@ -193,7 +196,9 @@
     <footer class="text-center py-8 text-gray-500 border-t border-gray-200 mt-8 bg-white">
         <div class="max-w-7xl mx-auto px-4">
             <p class="font-bold text-gray-800">SISTEMA INTEGRAL DE GESTIÓN 5S - ENSAMBLA GROUP</p>
-            <div class="flex flex-col md:flex-row justify-center items-center mt-4 space-y-2 md:space-y-0 md:space-x-8 text-sm">
+            
+            <!-- SECCIÓN DE CRÉDITOS (Con ID para ocultarlo en el reporte descargado) -->
+            <div id="footerCredits" class="flex flex-col md:flex-row justify-center items-center mt-4 space-y-2 md:space-y-0 md:space-x-8 text-sm">
                 <div>
                     <span class="block text-xs uppercase tracking-wider text-gray-400">Desarrollo Técnico</span>
                     <span class="font-medium text-blue-600">Diego Alejandro Hernández Blanco</span>
@@ -208,6 +213,15 @@
                 </div>
             </div>
             
+            <!-- Botón Discreto de Actualización (Oculto en App, Visible en Reporte) -->
+            <div id="reportUpdateBtn" class="mt-8 pt-4 border-t border-gray-100">
+                <label class="cursor-pointer text-xs text-gray-400 hover:text-blue-500 transition flex justify-center items-center">
+                    <i class="fas fa-sync-alt mr-1"></i> ↻ Actualizar Datos (Cargar Excel)
+                    <!-- Reutilizamos el input file oculto -->
+                    <input type="file" onchange="handleFileSelect(this)" accept=".xlsx, .xls" class="hidden" />
+                </label>
+            </div>
+
             <p class="text-xs text-gray-300 mt-4">&copy; 2026 Todos los derechos reservados.</p>
         </div>
     </footer>
@@ -258,22 +272,17 @@
         }
 
         // ==========================================
-        // 3. GENERACIÓN DE REPORTE FINAL (SOLO LECTURA)
+        // 3. GENERACIÓN DE REPORTE FINAL
         // ==========================================
         async function generateFinalReport() {
             if (isDemoMode && !confirm("Estás usando datos de DEMO. ¿Quieres generar el reporte con estos datos de ejemplo?")) return;
 
             const zip = new JSZip();
-            
-            // 1. Guardar Excel de Respaldo
             const excelBlob = generateCurrentExcel();
-            zip.file("Datos_Originales.xlsx", excelBlob);
-
-            // 2. Generar HTML "Congelado" (Sin botones de actualización)
+            zip.file("Datos_Respaldo_5S.xlsx", excelBlob);
             const htmlString = generateStaticHTML();
-            zip.file("Reporte_5S_Final.html", htmlString);
+            zip.file("Reporte_Interactivo_5S.html", htmlString);
 
-            // 3. Descargar
             const content = await zip.generateAsync({type:"blob"});
             const a = document.createElement("a");
             a.href = URL.createObjectURL(content);
@@ -284,14 +293,17 @@
         function generateStaticHTML() {
             let html = document.documentElement.outerHTML;
 
-            // A. INCRUSTAR DATOS ACTUALES
+            // Incrustar Datos
             const dataJSON = JSON.stringify(fullData);
             html = html.replace('/* DATA_INIT_MARKER */ { \'Administracion\': null, \'Operacion\': null }', dataJSON);
 
-            // B. LIMPIEZA TOTAL: Ocultar Barra Superior, Overlays y cualquier input de archivo
+            // LOGICA VISUAL DEL REPORTE FINAL:
+            // 1. OCULTAR: Barra Superior (#topBar), Overlays de edición y la sección de créditos del footer (#footerCredits).
+            // 2. MOSTRAR: El botón discreto de actualizar en el footer (#reportUpdateBtn).
             const styleTag = `<style>
-                #topBar, #logoOverlay, #authorOverlay, #excelInput, input[type="file"] { display: none !important; }
-                #fileInfo { color: #10b981; font-weight: bold; content: 'Reporte Final Cerrado'; }
+                #topBar, #logoOverlay, #authorOverlay, #footerCredits, #excelInput { display: none !important; }
+                #reportUpdateBtn { display: block !important; }
+                #fileInfo { color: #10b981; font-weight: bold; }
                 body { background-color: #f1f5f9; }
             </style></head>`;
             html = html.replace('</head>', styleTag);
