@@ -9,6 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
@@ -19,49 +20,78 @@
         .nav-active { border-bottom: 2px solid #3b82f6; color: #1d4ed8; font-weight: 600; }
         .nav-inactive { color: #64748b; }
         .nav-inactive:hover { color: #334155; }
+        
+        /* Estilos para la imagen de autoría */
+        .author-img-container {
+            border: 1px dashed rgba(255,255,255,0.3);
+            transition: all 0.3s;
+        }
+        .author-img-container:hover {
+            border-color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.1);
+        }
     </style>
 </head>
 <body>
 
-    <!-- Barra Superior de Herramientas -->
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 py-3 shadow-sm flex flex-col md:flex-row justify-between items-center">
+    <!-- Barra Superior (Visible en App, Oculta en Reporte) -->
+    <div id="topBar" class="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 py-3 shadow-sm flex flex-col md:flex-row justify-between items-center">
         <div class="flex items-center space-x-2 text-gray-600 mb-2 md:mb-0">
             <i class="fas fa-layer-group text-blue-600"></i>
             <span class="font-bold tracking-tight">SISTEMA DE GESTIÓN 5S</span>
         </div>
         <div class="flex space-x-3">
             <button onclick="downloadComplexTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded flex items-center transition">
-                <i class="fas fa-file-excel mr-2"></i> Descargar Formato Oficial
+                <i class="fas fa-file-excel mr-2"></i> Plantilla Vacía
             </button>
             <label class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded cursor-pointer flex items-center transition">
-                <i class="fas fa-upload mr-2"></i> Subir Auditoría
-                <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" />
+                <i class="fas fa-upload mr-2"></i> Subir Datos
+                <!-- Input principal de subida -->
+                <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleFileSelect(this)" />
             </label>
+            <button onclick="generateFinalReport()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-2 px-3 rounded flex items-center transition shadow-lg border border-purple-500">
+                <i class="fas fa-download mr-2"></i> DESCARGAR REPORTE FINAL
+            </button>
         </div>
     </div>
 
-    <!-- Encabezado con Logo -->
+    <!-- Encabezado con Logo y Marca de Autoría -->
     <header class="gradient-header text-white p-8">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-6">
-                <!-- Contenedor Logo -->
-                <div class="bg-white p-2 rounded h-20 w-32 flex items-center justify-center overflow-hidden relative group cursor-pointer">
-                    <img id="companyLogo" src="https://via.placeholder.com/150x80?text=TU+LOGO" class="max-h-full max-w-full object-contain">
-                    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            
+            <!-- Izquierda: Logo y Título -->
+            <div class="flex items-center gap-6 w-full md:w-auto">
+                <!-- Contenedor Logo Empresa -->
+                <div class="bg-white p-2 rounded h-20 w-32 flex items-center justify-center overflow-hidden relative group cursor-pointer flex-shrink-0">
+                    <img id="companyLogo" src="https://via.placeholder.com/150x80?text=LOGO+EMPRESA" class="max-h-full max-w-full object-contain">
+                    <div id="logoOverlay" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <label class="text-xs text-white cursor-pointer text-center leading-tight">
                             Cambiar<br>Logo
-                            <input type='file' class="hidden" onchange="updateLogo(this)" accept="image/*" />
+                            <input type='file' class="hidden" onchange="updateImage(this, 'companyLogo')" accept="image/*" />
                         </label>
                     </div>
                 </div>
                 <div>
-                    <h1 class="text-3xl font-bold">REPORTE EJECUTIVO 5S</h1>
-                    <p class="text-blue-200 text-sm mt-1">Evaluación de Mejora Continua y Estandarización</p>
+                    <h1 class="text-3xl font-bold uppercase tracking-wide">Reporte Ejecutivo 5S</h1>
+                    <p class="text-blue-200 text-sm mt-1">Evaluación de Mejora Continua</p>
                 </div>
             </div>
-            <div class="text-right hidden md:block">
-                <div class="text-xs text-gray-400 uppercase">Presentado por</div>
-                <div class="font-bold text-lg text-yellow-400">ROCIO TELLEZ</div>
+
+            <!-- Derecha: Marca de Autoría (Imagen Ancha) -->
+            <div class="text-center md:text-right w-full md:w-auto">
+                <div class="text-xs text-gray-400 uppercase mb-1">Presentado por / Autoría</div>
+                
+                <!-- Contenedor Imagen Autoría -->
+                <div class="author-img-container relative h-16 w-64 md:w-80 rounded flex items-center justify-center cursor-pointer group mx-auto md:ml-auto overflow-hidden">
+                    <img id="authorImage" src="https://via.placeholder.com/320x60?text=CLIC+PARA+SUBIR+FIRMA/MARCA" class="h-full w-full object-contain">
+                    
+                    <div id="authorOverlay" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <label class="text-xs text-white cursor-pointer font-bold">
+                            <i class="fas fa-camera mr-1"></i> SUBIR MARCA
+                            <input type='file' class="hidden" onchange="updateImage(this, 'authorImage')" accept="image/*" />
+                        </label>
+                    </div>
+                </div>
                 <div id="fileInfo" class="text-xs text-gray-400 mt-1">Vista Demo</div>
             </div>
         </div>
@@ -70,10 +100,9 @@
     <!-- Contenido Principal -->
     <main class="max-w-7xl mx-auto px-4 -mt-6 relative z-10 pb-12">
         
-        <!-- Tarjeta de Controles Principales -->
+        <!-- Tarjeta de Controles (Tabs y Filtros) -->
         <div class="bg-white rounded-lg shadow-lg p-4 mb-6 flex flex-col md:flex-row justify-between items-center border border-gray-100">
-            
-            <!-- Selector de Área (Pestañas) -->
+            <!-- Pestañas -->
             <div class="flex space-x-6 border-b md:border-b-0 border-gray-200 pb-2 md:pb-0 w-full md:w-auto overflow-x-auto">
                 <button onclick="switchArea('Administracion')" id="tab-admin" class="nav-active py-2 px-1 flex items-center whitespace-nowrap">
                     <i class="fas fa-laptop-house mr-2"></i> ADMINISTRACIÓN
@@ -82,8 +111,7 @@
                     <i class="fas fa-industry mr-2"></i> OPERACIÓN / PLANTA
                 </button>
             </div>
-
-            <!-- Selector de Pilar (Filtro) -->
+            <!-- Filtro -->
             <div class="mt-3 md:mt-0 flex items-center">
                 <span class="text-sm text-gray-500 mr-2">Filtrar Detalle:</span>
                 <select id="pilarFilter" onchange="updateCharts()" class="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-48 p-2">
@@ -97,7 +125,7 @@
             </div>
         </div>
 
-        <!-- KPIs Generales -->
+        <!-- KPIs -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="card p-4 border-l-4 border-blue-600">
                 <div class="text-gray-500 text-xs font-bold uppercase">Calificación Global</div>
@@ -105,86 +133,60 @@
                     <span class="text-3xl font-bold text-gray-800" id="kpi-score">0.0</span>
                     <span class="text-sm text-gray-400 ml-1">/ 5.0</span>
                 </div>
-                <div class="text-xs text-blue-600 mt-2 font-medium">Promedio Ponderado</div>
             </div>
-            
             <div class="card p-4 border-l-4 border-emerald-500">
                 <div class="text-gray-500 text-xs font-bold uppercase">Cumplimiento</div>
                 <div class="text-3xl font-bold text-gray-800 mt-1" id="kpi-percent">0%</div>
-                <div class="text-xs text-emerald-600 mt-2 font-medium">Meta: > 85%</div>
             </div>
-
             <div class="card p-4 border-l-4 border-yellow-500">
                 <div class="text-gray-500 text-xs font-bold uppercase">Mejor Desempeño</div>
                 <div class="text-lg font-bold text-gray-800 mt-2 truncate" id="kpi-best">--</div>
-                <div class="text-xs text-yellow-600 mt-1">Pilar Destacado</div>
             </div>
-
             <div class="card p-4 border-l-4 border-red-500">
                 <div class="text-gray-500 text-xs font-bold uppercase">Punto Crítico</div>
                 <div class="text-lg font-bold text-gray-800 mt-2 truncate" id="kpi-worst">--</div>
-                <div class="text-xs text-red-600 mt-1">Requiere Acción</div>
             </div>
         </div>
 
-        <!-- Panel de Gráficos Nivel 1 (Radar y Evolución) -->
+        <!-- Gráficos Nivel 1 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <!-- Gráfico Radar (Izquierda) -->
             <div class="card p-4 lg:col-span-1">
                 <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Balance 5S (Radar)</h3>
-                <div class="h-64 relative">
-                    <canvas id="radarChart"></canvas>
-                </div>
+                <div class="h-64 relative"><canvas id="radarChart"></canvas></div>
             </div>
-
-            <!-- Gráfico Evolutivo o Detalle (Derecha - Más ancho) -->
             <div class="card p-4 lg:col-span-2">
                 <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2 flex justify-between">
                     <span id="mainChartTitle">Evolución Histórica</span>
-                    <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 rounded">Multifechas (Automático)</span>
+                    <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 rounded">Multifechas</span>
                 </h3>
-                <div class="h-64 relative">
-                    <canvas id="mainChart"></canvas>
-                </div>
+                <div class="h-64 relative"><canvas id="mainChart"></canvas></div>
             </div>
         </div>
 
-        <!-- Panel de Gráficos Nivel 2 (Nuevos Gráficos) -->
+        <!-- Gráficos Nivel 2 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <!-- Gráfico Barras Comparativas -->
             <div class="card p-4">
-                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Comparativa por Pilar (Última Auditoría)</h3>
-                <div class="h-64 relative">
-                    <canvas id="barChart"></canvas>
-                </div>
+                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Comparativa por Pilar</h3>
+                <div class="h-64 relative"><canvas id="barChart"></canvas></div>
             </div>
-
-            <!-- Gráfico Distribución -->
             <div class="card p-4">
-                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Distribución de Calificaciones (Calidad)</h3>
-                <div class="h-64 relative flex justify-center">
-                    <canvas id="pieChart"></canvas>
-                </div>
+                <h3 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2">Calidad de Respuestas</h3>
+                <div class="h-64 relative flex justify-center"><canvas id="pieChart"></canvas></div>
             </div>
         </div>
 
-        <!-- Tabla Detallada -->
+        <!-- Tabla -->
         <div class="card overflow-hidden">
             <div class="bg-gray-50 px-6 py-3 border-b border-gray-200">
-                <h3 class="font-bold text-gray-700 text-sm">Detalle de Hallazgos por Pregunta</h3>
+                <h3 class="font-bold text-gray-700 text-sm">Detalle de Hallazgos</h3>
             </div>
             <div class="overflow-x-auto max-h-[500px]">
                 <table class="w-full text-sm text-left text-gray-500" id="detailTable">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 z-10">
-                        <!-- Headers dinámicos -->
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Filas dinámicas -->
-                    </tbody>
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 z-10"></thead>
+                    <tbody id="tableBody"></tbody>
                 </table>
             </div>
         </div>
-
     </main>
 
     <!-- Footer -->
@@ -205,106 +207,145 @@
                     <span class="block text-xs text-gray-500">Gestión de Calidad y Procesos</span>
                 </div>
             </div>
-            <p class="text-xs text-gray-300 mt-6">&copy; 2026 Todos los derechos reservados.</p>
+            
+            <p class="text-xs text-gray-300 mt-4">&copy; 2026 Todos los derechos reservados.</p>
         </div>
     </footer>
 
-    <!-- LÓGICA DE PROGRAMACIÓN -->
+    <!-- LOGICA DEL SISTEMA -->
     <script>
         // ==========================================
-        // 1. VARIABLES GLOBALES Y ESTADO
+        // 1. GESTIÓN DE DATOS Y ESTADO
         // ==========================================
-        let fullData = {
-            'Administracion': null,
-            'Operacion': null
-        };
-        let currentArea = 'Administracion'; // Default
+        
+        let fullData = /* DATA_INIT_MARKER */ { 'Administracion': null, 'Operacion': null }; 
+        let isDemoMode = true; 
+        let currentArea = 'Administracion';
         let charts = { radar: null, main: null, bar: null, pie: null };
+        const lineColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef'];
 
-        // Colores para las líneas de preguntas
-        const lineColors = [
-            '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', 
-            '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef'
-        ];
-
-        // Datos DEMO para mostrar al inicio (Estructura compleja)
         const demoDataStructure = {
             fechas: ['02/Feb', '09/Feb', '16/Feb', '23/Feb', '02/Mar'],
             pilares: ['Seiri', 'Seiton', 'Seiso', 'Seiketsu', 'Shitsuke'],
-            // Estructura: { Pilar: [ { pregunta: "Texto", scores: [1,2,3,4] } ] }
             data: {
-                'Seiri': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta de Clasificación ${i+1} (Ejemplo)`, scores: [2,3,3,4,4] })),
-                'Seiton': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta de Orden ${i+1} (Ejemplo)`, scores: [3,3,4,4,5] })),
-                'Seiso': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta de Limpieza ${i+1} (Ejemplo)`, scores: [4,4,5,5,5] })),
-                'Seiketsu': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta Estandarización ${i+1} (Ejemplo)`, scores: [2,2,3,3,4] })),
-                'Shitsuke': Array(8).fill(0).map((_, i) => ({ pregunta: `Pregunta Disciplina ${i+1} (Ejemplo)`, scores: [3,4,4,5,5] }))
+                'Seiri': Array(8).fill(0).map((_, i) => ({ pregunta: `Criterio Demo Clasificación ${i+1}`, scores: [2,3,3,4,4] })),
+                'Seiton': Array(8).fill(0).map((_, i) => ({ pregunta: `Criterio Demo Orden ${i+1}`, scores: [3,3,4,4,5] })),
+                'Seiso': Array(8).fill(0).map((_, i) => ({ pregunta: `Criterio Demo Limpieza ${i+1}`, scores: [4,4,5,5,5] })),
+                'Seiketsu': Array(8).fill(0).map((_, i) => ({ pregunta: `Criterio Demo Estandarización ${i+1}`, scores: [2,2,3,3,4] })),
+                'Shitsuke': Array(8).fill(0).map((_, i) => ({ pregunta: `Criterio Demo Disciplina ${i+1}`, scores: [3,4,4,5,5] }))
             }
         };
 
-        // Cargar Demo en ambas áreas al inicio
-        fullData['Administracion'] = demoDataStructure;
-        fullData['Operacion'] = JSON.parse(JSON.stringify(demoDataStructure)); // Copia profunda
-        // Variar un poco la data de operación para que se note el cambio
-        fullData['Operacion'].data['Seiri'][0].scores = [1,2,2,3,3]; 
-
         // ==========================================
-        // 2. GENERADOR DE PLANTILLA EXCEL (COMPLEJA)
+        // 2. LÓGICA DE INICIALIZACIÓN
         // ==========================================
-        function downloadComplexTemplate() {
-            const wb = XLSX.utils.book_new();
-
-            // Función auxiliar para generar hoja con estructura de bloques
-            function createSheetData(areaName) {
-                const rows = [];
-                // Encabezados Generales
-                rows.push(["AUDITORÍA 5S - " + areaName.toUpperCase()]);
-                rows.push(["Instrucciones: Califique de 1 a 5 cada pregunta. Deje en blanco si no aplica. Agregue columnas a la derecha para más fechas."]);
-                rows.push([]); // Espacio
-
-                const pillars = [
-                    { name: "CLASIFICACIÓN (SEIRI)", key: "Seiri" },
-                    { name: "ORDEN (SEITON)", key: "Seiton" },
-                    { name: "LIMPIEZA (SEISO)", key: "Seiso" },
-                    { name: "ESTANDARIZACIÓN (SEIKETSU)", key: "Seiketsu" },
-                    { name: "DISCIPLINA (SHITSUKE)", key: "Shitsuke" }
-                ];
-
-                // Generar bloques
-                pillars.forEach(p => {
-                    rows.push([`ASPECTO: ${p.name}`]); // Fila Identificadora de Bloque
-                    // Header de fechas
-                    rows.push(["ASPECTO A EVALUAR", "02/Feb", "09/Feb", "16/Feb", "23/Feb"]);
-                    
-                    // 8 Preguntas genéricas
-                    for(let i=1; i<=8; i++) {
-                        rows.push([`Criterio ${i} para ${p.key}: ¿Se cumple correctamente...?`, "", "", "", ""]);
-                    }
-                    rows.push(["Total", "", "", "", ""]); // Fila de Total (opcional para el usuario)
-                    rows.push([]); // Espacio entre bloques
-                });
-
-                return rows;
+        window.onload = function() {
+            if (fullData['Administracion'] !== null || fullData['Operacion'] !== null) {
+                isDemoMode = false;
+                document.getElementById('fileInfo').innerText = "Reporte Oficial Generado";
+                if(!fullData['Administracion'] && fullData['Operacion']) currentArea = 'Operacion';
+            } else {
+                loadDemoData();
             }
+            updateView();
+        };
 
-            // Crear Hoja Administración
-            const wsAdmin = XLSX.utils.aoa_to_sheet(createSheetData("Administración"));
-            // Ajustar anchos
-            wsAdmin['!cols'] = [{wch: 60}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}];
-            XLSX.utils.book_append_sheet(wb, wsAdmin, "Administracion");
-
-            // Crear Hoja Operación
-            const wsOps = XLSX.utils.aoa_to_sheet(createSheetData("Operación"));
-            wsOps['!cols'] = [{wch: 60}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}];
-            XLSX.utils.book_append_sheet(wb, wsOps, "Operacion");
-
-            XLSX.writeFile(wb, "Formato_Auditoria_5S_Ensambla.xlsx");
+        function loadDemoData() {
+            fullData['Administracion'] = demoDataStructure;
+            fullData['Operacion'] = JSON.parse(JSON.stringify(demoDataStructure));
+            fullData['Operacion'].data['Seiri'][0].scores = [1,2,2,3,3];
+            isDemoMode = true;
         }
 
         // ==========================================
-        // 3. PARSER DE EXCEL INTELIGENTE
+        // 3. GENERACIÓN DE REPORTE FINAL (SOLO LECTURA)
         // ==========================================
-        document.getElementById('excelInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
+        async function generateFinalReport() {
+            if (isDemoMode && !confirm("Estás usando datos de DEMO. ¿Quieres generar el reporte con estos datos de ejemplo?")) return;
+
+            const zip = new JSZip();
+            
+            // 1. Guardar Excel de Respaldo
+            const excelBlob = generateCurrentExcel();
+            zip.file("Datos_Originales.xlsx", excelBlob);
+
+            // 2. Generar HTML "Congelado" (Sin botones de actualización)
+            const htmlString = generateStaticHTML();
+            zip.file("Reporte_5S_Final.html", htmlString);
+
+            // 3. Descargar
+            const content = await zip.generateAsync({type:"blob"});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(content);
+            a.download = "Paquete_Final_5S_Ensambla.zip";
+            a.click();
+        }
+
+        function generateStaticHTML() {
+            let html = document.documentElement.outerHTML;
+
+            // A. INCRUSTAR DATOS ACTUALES
+            const dataJSON = JSON.stringify(fullData);
+            html = html.replace('/* DATA_INIT_MARKER */ { \'Administracion\': null, \'Operacion\': null }', dataJSON);
+
+            // B. LIMPIEZA TOTAL: Ocultar Barra Superior, Overlays y cualquier input de archivo
+            const styleTag = `<style>
+                #topBar, #logoOverlay, #authorOverlay, #excelInput, input[type="file"] { display: none !important; }
+                #fileInfo { color: #10b981; font-weight: bold; content: 'Reporte Final Cerrado'; }
+                body { background-color: #f1f5f9; }
+            </style></head>`;
+            html = html.replace('</head>', styleTag);
+
+            return html;
+        }
+
+        function generateCurrentExcel() {
+            const wb = XLSX.utils.book_new();
+            const createSheet = (areaKey) => {
+                if(!fullData[areaKey]) return null;
+                const data = fullData[areaKey];
+                let rows = [["AUDITORÍA 5S - " + areaKey.toUpperCase()], ["Generado desde Dashboard"], []];
+                
+                const pillars = [{n:"CLASIFICACIÓN (SEIRI)", k:"Seiri"}, {n:"ORDEN (SEITON)", k:"Seiton"},
+                    {n:"LIMPIEZA (SEISO)", k:"Seiso"}, {n:"ESTANDARIZACIÓN (SEIKETSU)", k:"Seiketsu"},
+                    {n:"DISCIPLINA (SHITSUKE)", k:"Shitsuke"}];
+
+                pillars.forEach(p => {
+                    rows.push([`ASPECTO: ${p.n}`]);
+                    rows.push(["ASPECTO A EVALUAR", ...data.fechas]);
+                    data.data[p.k].forEach(q => rows.push([q.pregunta, ...q.scores]));
+                    rows.push([]);
+                });
+                return XLSX.utils.aoa_to_sheet(rows);
+            };
+
+            const wsAdmin = createSheet('Administracion');
+            if(wsAdmin) XLSX.utils.book_append_sheet(wb, wsAdmin, "Administracion");
+            const wsOps = createSheet('Operacion');
+            if(wsOps) XLSX.utils.book_append_sheet(wb, wsOps, "Operacion");
+
+            return XLSX.write(wb, {bookType:'xlsx', type:'array'});
+        }
+
+        // ==========================================
+        // 4. MANEJO DE IMÁGENES
+        // ==========================================
+        function updateImage(input, imgId) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById(imgId).src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // ==========================================
+        // 5. PARSER EXCEL Y EVENTOS
+        // ==========================================
+        
+        function handleFileSelect(input) {
+            const file = input.files[0];
             if(!file) return;
 
             const reader = new FileReader();
@@ -312,35 +353,25 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 
-                // Procesar hoja por hoja
+                isDemoMode = false;
+                
                 workbook.SheetNames.forEach(sheetName => {
                     const sheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ''});
-                    
-                    // Identificar si es Admin u Operacion (normalizar nombres)
                     const cleanName = sheetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    if(cleanName.includes('admin')) {
-                        fullData['Administracion'] = parseSheetComplex(json);
-                    } else if (cleanName.includes('operacion') || cleanName.includes('planta')) {
-                        fullData['Operacion'] = parseSheetComplex(json);
-                    }
+                    
+                    if(cleanName.includes('admin')) fullData['Administracion'] = parseSheet(json);
+                    else if (cleanName.includes('operacion') || cleanName.includes('planta')) fullData['Operacion'] = parseSheet(json);
                 });
 
-                // Actualizar vista
-                document.getElementById('fileInfo').innerText = "Archivo: " + file.name;
+                document.getElementById('fileInfo').innerText = "Datos Cargados: " + file.name;
                 updateView();
             };
             reader.readAsArrayBuffer(file);
-        });
+        }
 
-        function parseSheetComplex(rows) {
-            // Estructura de salida
-            let result = {
-                fechas: [],
-                pilares: ['Seiri', 'Seiton', 'Seiso', 'Seiketsu', 'Shitsuke'],
-                data: { 'Seiri': [], 'Seiton': [], 'Seiso': [], 'Seiketsu': [], 'Shitsuke': [] }
-            };
-
+        function parseSheet(rows) {
+            let result = { fechas: [], pilares: ['Seiri', 'Seiton', 'Seiso', 'Seiketsu', 'Shitsuke'], data: { 'Seiri': [], 'Seiton': [], 'Seiso': [], 'Seiketsu': [], 'Shitsuke': [] } };
             let currentPilar = null;
             let dateIndices = [];
 
@@ -348,79 +379,47 @@
                 const row = rows[i];
                 const firstCell = String(row[0] || '').toUpperCase();
 
-                // 1. Detectar Bloque de Pilar
                 if(firstCell.includes('ASPECTO:')) {
                     if(firstCell.includes('SEIRI') || firstCell.includes('CLASIFICACIÓN')) currentPilar = 'Seiri';
                     else if(firstCell.includes('SEITON') || firstCell.includes('ORDEN')) currentPilar = 'Seiton';
                     else if(firstCell.includes('SEISO') || firstCell.includes('LIMPIEZA')) currentPilar = 'Seiso';
                     else if(firstCell.includes('SEIKETSU') || firstCell.includes('ESTANDARIZACIÓN')) currentPilar = 'Seiketsu';
                     else if(firstCell.includes('SHITSUKE') || firstCell.includes('DISCIPLINA')) currentPilar = 'Shitsuke';
-                    continue; // Saltar a siguiente fila para buscar headers
+                    continue; 
                 }
 
-                // 2. Detectar Headers de Fecha (dentro de un bloque)
                 if(currentPilar && firstCell.includes('ASPECTO A EVALUAR')) {
-                    // Si es la primera vez que detectamos fechas, las guardamos globalmente para esta hoja
                     if(result.fechas.length === 0) {
                         for(let j=1; j<row.length; j++) {
-                            if(row[j]) {
-                                // Intentar formatear fecha si es número excel
-                                let d = row[j];
-                                result.fechas.push(String(d)); 
-                                dateIndices.push(j);
-                            }
+                            if(row[j]) { result.fechas.push(String(row[j])); dateIndices.push(j); }
                         }
                     }
                     continue;
                 }
 
-                // 3. Detectar Preguntas/Datos
                 if(currentPilar && !firstCell.includes('TOTAL') && row[0] && dateIndices.length > 0) {
-                    // Es una pregunta válida
                     let scores = [];
                     dateIndices.forEach(idx => {
                         let val = parseFloat(row[idx]);
-                        if(isNaN(val)) val = 0;
-                        if(val > 5) val = 5; // Límite superior
-                        scores.push(val);
+                        scores.push((isNaN(val) || val < 0) ? 0 : (val > 5 ? 5 : val));
                     });
-
-                    // Solo agregar si tiene texto la pregunta
-                    result.data[currentPilar].push({
-                        pregunta: row[0],
-                        scores: scores
-                    });
+                    result.data[currentPilar].push({ pregunta: row[0], scores: scores });
                 }
             }
             return result;
         }
 
         // ==========================================
-        // 4. LÓGICA DE INTERFAZ (UI)
+        // 6. DASHBOARD UI & CHARTS
         // ==========================================
-        
         function switchArea(area) {
             currentArea = area;
-            // Actualizar estilos tabs
             document.getElementById('tab-admin').className = area === 'Administracion' ? 'nav-active py-2 px-1 flex items-center whitespace-nowrap' : 'nav-inactive py-2 px-1 flex items-center whitespace-nowrap';
             document.getElementById('tab-ops').className = area === 'Operacion' ? 'nav-active py-2 px-1 flex items-center whitespace-nowrap' : 'nav-inactive py-2 px-1 flex items-center whitespace-nowrap';
-            
             updateView();
         }
 
-        function updateLogo(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('companyLogo').src = e.target.result;
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function updateView() {
-            updateCharts();
-        }
+        function updateView() { updateCharts(); }
 
         function updateCharts() {
             const dataSet = fullData[currentArea];
@@ -429,26 +428,18 @@
             const filter = document.getElementById('pilarFilter').value;
             const lastIdx = dataSet.fechas.length - 1;
 
-            // --- CÁLCULOS ESTADÍSTICOS ---
             let pilarAverages = {};
             let totalAveragesByDate = new Array(dataSet.fechas.length).fill(0);
-            
-            // Para el gráfico de distribución (pie)
-            let scoreDistribution = [0, 0, 0, 0, 0]; // Counts for 1, 2, 3, 4, 5
+            let scoreDistribution = [0, 0, 0, 0, 0]; 
 
             dataSet.pilares.forEach(pilar => {
                 const questions = dataSet.data[pilar];
                 let avgs = [];
-                
                 for(let i=0; i<dataSet.fechas.length; i++) {
-                    let sum = 0;
-                    let count = 0;
+                    let sum = 0, count = 0;
                     questions.forEach(q => {
                         let val = q.scores[i] || 0;
-                        sum += val;
-                        count++;
-                        
-                        // Solo contar distribución para la última fecha
+                        sum += val; count++;
                         if (i === lastIdx && val > 0) {
                             let intVal = Math.round(val);
                             if(intVal >=1 && intVal <=5) scoreDistribution[intVal-1]++;
@@ -463,25 +454,20 @@
 
             totalAveragesByDate = totalAveragesByDate.map(val => val / 5);
 
-            // --- ACTUALIZAR KPIs ---
+            // KPIs
             const currentScore = totalAveragesByDate[lastIdx] || 0;
-            
             document.getElementById('kpi-score').innerText = currentScore.toFixed(2);
             document.getElementById('kpi-percent').innerText = ((currentScore / 5) * 100).toFixed(0) + "%";
             
             let scoresArr = Object.entries(pilarAverages).map(([k, v]) => ({ pilar: k, score: v[lastIdx] }));
             scoresArr.sort((a,b) => b.score - a.score);
-            
-            document.getElementById('kpi-best').innerText = scoresArr[0].pilar;
-            document.getElementById('kpi-worst').innerText = scoresArr[scoresArr.length-1].pilar;
+            document.getElementById('kpi-best').innerText = scoresArr[0] ? scoresArr[0].pilar : '--';
+            document.getElementById('kpi-worst').innerText = scoresArr.length > 0 ? scoresArr[scoresArr.length-1].pilar : '--';
 
-
-            // --- RENDERIZAR GRÁFICOS ---
-            
-            // 1. Radar Chart 
+            // GRÁFICOS
+            // 1. Radar
             const ctxRadar = document.getElementById('radarChart').getContext('2d');
             if(charts.radar) charts.radar.destroy();
-
             charts.radar = new Chart(ctxRadar, {
                 type: 'radar',
                 data: {
@@ -491,24 +477,23 @@
                         data: dataSet.pilares.map(p => pilarAverages[p][lastIdx]),
                         backgroundColor: 'rgba(59, 130, 246, 0.2)',
                         borderColor: '#2563eb',
-                        pointBackgroundColor: '#2563eb',
                         borderWidth: 2
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { r: { min: 0, max: 5 } },
-                    plugins: { legend: { display: false } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 5 } }, plugins: { legend: { display: false } } }
             });
 
-            // 2. Main Chart (ESTE ES EL QUE CAMBIA CON EL FILTRO)
+            // 2. Main Chart (CON LEYENDA ACTIVADA)
             const ctxMain = document.getElementById('mainChart').getContext('2d');
             if(charts.main) charts.main.destroy();
 
+            const commonLegend = { 
+                display: true, 
+                position: 'bottom',
+                labels: { boxWidth: 12, font: { size: 10 } }
+            };
+
             if(filter === 'all') {
-                // MODO GENERAL: Evolución en el tiempo (Promedio Total)
                 document.getElementById('mainChartTitle').innerText = "Evolución del Cumplimiento General";
                 charts.main = new Chart(ctxMain, {
                     type: 'line',
@@ -520,137 +505,91 @@
                             borderColor: '#10b981',
                             backgroundColor: 'rgba(16, 185, 129, 0.1)',
                             fill: true,
-                            tension: 0.3,
-                            pointRadius: 5
+                            tension: 0.3
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: { y: { min: 0, max: 5 } }
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        scales: { y: { min: 0, max: 5 } },
+                        plugins: { legend: commonLegend }
                     }
                 });
             } else {
-                // MODO FILTRO: Muestra gráfico de LÍNEAS por cada PREGUNTA de ese Pilar
-                document.getElementById('mainChartTitle').innerText = `Evolución Detallada por Criterio: ${filter}`;
-                
+                document.getElementById('mainChartTitle').innerText = `Evolución: ${filter}`;
                 const questions = dataSet.data[filter];
-                
-                // Generar datasets para cada pregunta
                 const datasets = questions.map((q, index) => ({
-                    label: q.pregunta.length > 30 ? q.pregunta.substring(0, 30) + '...' : q.pregunta,
+                    label: q.pregunta.substring(0, 30),
                     data: q.scores,
-                    borderColor: lineColors[index % lineColors.length], // Color cíclico
+                    borderColor: lineColors[index % lineColors.length],
                     backgroundColor: 'transparent',
                     borderWidth: 2,
                     tension: 0.3,
-                    pointRadius: 4
+                    pointRadius: 3
                 }));
-
                 charts.main = new Chart(ctxMain, {
                     type: 'line',
-                    data: {
-                        labels: dataSet.fechas,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: { 
-                            y: { min: 0, max: 5 } 
-                        },
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 10,
-                                    font: { size: 10 }
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    title: (context) => context[0].label, // Fecha
-                                    label: (context) => {
-                                        // Mostrar nombre completo de la pregunta en tooltip
-                                        const fullQuestion = questions[context.datasetIndex].pregunta;
-                                        return `${fullQuestion}: ${context.raw}`;
-                                    }
-                                }
-                            }
-                        }
+                    data: { labels: dataSet.fechas, datasets: datasets },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        scales: { y: { min: 0, max: 5 } }, 
+                        plugins: { legend: commonLegend }
                     }
                 });
             }
 
-            // 3. New Bar Chart (Comparison per Pillar)
+            // 3. Bar
             const ctxBar = document.getElementById('barChart').getContext('2d');
             if(charts.bar) charts.bar.destroy();
-            
             charts.bar = new Chart(ctxBar, {
                 type: 'bar',
                 data: {
                     labels: dataSet.pilares,
                     datasets: [{
-                        label: 'Puntaje Actual (1-5)',
+                        label: 'Puntaje',
                         data: dataSet.pilares.map(p => pilarAverages[p][lastIdx]),
-                        backgroundColor: [
-                            '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'
-                        ],
-                        borderRadius: 5
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'],
+                        borderRadius: 4
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { min: 0, max: 5 } },
-                    plugins: { legend: { display: false } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 5 } }, plugins: { legend: { display: false } } }
             });
 
-            // 4. New Pie Chart (Distribution)
+            // 4. Pie
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             if(charts.pie) charts.pie.destroy();
-
             charts.pie = new Chart(ctxPie, {
                 type: 'doughnut',
                 data: {
-                    labels: ['1 (Pésimo)', '2 (Malo)', '3 (Regular)', '4 (Bueno)', '5 (Excelente)'],
+                    labels: ['1', '2', '3', '4', '5'],
                     datasets: [{
                         data: scoreDistribution,
                         backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#10b981'],
                         borderWidth: 1
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { position: 'right' }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
             });
 
-            // --- RENDERIZAR TABLA ---
             renderTable(dataSet, filter);
         }
 
+        // --- FUNCIÓN renderTable ---
         function renderTable(dataSet, filter) {
             const thead = document.getElementById('detailTable').querySelector('thead');
             const tbody = document.getElementById('tableBody');
             
-            // Headers
             let hHtml = `<tr><th class="px-6 py-3">Criterio / Pregunta</th>`;
             dataSet.fechas.forEach(f => hHtml += `<th class="px-6 py-3 text-center">${f}</th>`);
             hHtml += `</tr>`;
             thead.innerHTML = hHtml;
 
-            // Body
             tbody.innerHTML = '';
             
             let pilaresToShow = filter === 'all' ? dataSet.pilares : [filter];
 
             pilaresToShow.forEach(pilar => {
-                // Header de sección en tabla
                 tbody.innerHTML += `<tr class="bg-gray-100"><td colspan="${dataSet.fechas.length + 1}" class="px-6 py-2 font-bold text-gray-800 border-b">${pilar}</td></tr>`;
                 
                 const questions = dataSet.data[pilar];
@@ -668,11 +607,23 @@
             });
         }
 
-        // Init
-        window.onload = function() {
-            updateView();
+        function downloadComplexTemplate() {
+            const wb = XLSX.utils.book_new();
+            function createSheetData(areaName) {
+                const rows = [["AUDITORÍA 5S - " + areaName.toUpperCase()], ["Instrucciones..."], []];
+                const pillars = [{n:"CLASIFICACIÓN (SEIRI)", k:"Seiri"}, {n:"ORDEN (SEITON)", k:"Seiton"}, {n:"LIMPIEZA (SEISO)", k:"Seiso"}, {n:"ESTANDARIZACIÓN (SEIKETSU)", k:"Seiketsu"}, {n:"DISCIPLINA (SHITSUKE)", k:"Shitsuke"}];
+                pillars.forEach(p => {
+                    rows.push([`ASPECTO: ${p.n}`]); 
+                    rows.push(["ASPECTO A EVALUAR", "02/Feb", "09/Feb"]);
+                    for(let i=1; i<=8; i++) rows.push([`Criterio ${i}...`, "", ""]);
+                    rows.push([]);
+                });
+                return rows;
+            }
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(createSheetData("Administración")), "Administracion");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(createSheetData("Operación")), "Operacion");
+            XLSX.writeFile(wb, "Plantilla_5S.xlsx");
         }
-
     </script>
 </body>
 </html>
